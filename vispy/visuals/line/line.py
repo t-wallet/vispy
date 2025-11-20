@@ -321,6 +321,11 @@ class _GLLineVisual(Visual):
         xform = view.transforms.get_transform()
         view.view_program.vert['transform'] = xform
 
+    @Visual.transforms.setter
+    def transforms(self, value):
+        self._px_scale = value.pixel_scale
+        Visual.transforms.fset(self, value)
+
     def _prepare_draw(self, view):
         prof = Profiler()
 
@@ -353,8 +358,7 @@ class _GLLineVisual(Visual):
             self.shared_program['texture2D_LUT'] = cmap and cmap.texture_lut()
 
         self.update_gl_state(line_smooth=bool(self._parent._antialias))
-        px_scale = self.transforms.pixel_scale
-        width = px_scale * self._parent._width
+        width = self._px_scale * self._parent._width
         self.update_gl_state(line_width=max(width, 1.0))
 
         if self._parent._changed['connect']:
