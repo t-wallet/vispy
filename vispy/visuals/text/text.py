@@ -412,6 +412,8 @@ class TextVisual(Visual):
                  italic=False, face='OpenSans', font_size=12, pos=[0, 0, 0],
                  rotation=0., anchor_x='center', anchor_y='center',
                  method='cpu', font_manager=None, depth_test=False):
+        self._font_size = font_size
+        self._text_scale = STTransform()
         Visual.__init__(self, vcode=self._shaders['vertex'], fcode=self._shaders['fragment'])
         # Check input
         valid_keys = ('top', 'center', 'middle', 'baseline', 'bottom')
@@ -432,10 +434,8 @@ class TextVisual(Visual):
         # Init text properties
         self.color = color
         self.text = text
-        self.font_size = font_size
         self.pos = pos
         self.rotation = rotation
-        self._text_scale = STTransform()
         self._draw_mode = 'triangles'
         self.set_gl_state(blend=True, depth_test=depth_test, cull_face=False,
                           blend_func=('src_alpha', 'one_minus_src_alpha'))
@@ -591,17 +591,28 @@ class TextVisual(Visual):
             self.shared_program.vert['color'] = self._color_vbo
             self._color_changed = False
 
-        transforms = self.transforms
-        n_pix = (self._font_size / 72.) * transforms.dpi  # logical pix
-        tr = transforms.get_transform('document', 'render')
-        px_scale = (tr.map((1, 0)) - tr.map((0, 1)))[:2]
-        self._text_scale.scale = px_scale * n_pix
         self.shared_program.vert['text_scale'] = self._text_scale
-        self.shared_program['u_npix'] = n_pix
+        self.shared_program['u_npix'] = self._n_pix
         self.shared_program['u_kernel'] = self._font._kernel
         self.shared_program['u_color'] = self._color.rgba
         self.shared_program['u_font_atlas'] = self._font._atlas
         self.shared_program['u_font_atlas_shape'] = self._font._atlas.shape[:2]
+
+    #@override
+    @Visual.transforms.setter
+    def transforms(self, value):
+        print("setting transforms of textvisual")
+        if value.dpi is None:
+            dpi = 0.0
+        else:
+            dpi = value.dpi
+
+        self._n_pix = (self._font_size / 72.) * dpi  # logical pix
+        tr = value.get_transform('document', 'render')
+        px_scale = (tr.map((1, 0)) - tr.map((0, 1)))[:2]
+        self._text_scale.scale = px_scale * self._n_pix
+
+        Visual.transforms.fset(self, value)
 
     def _prepare_transforms(self, view):
         self._pos_changed = True
